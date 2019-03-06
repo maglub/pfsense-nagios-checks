@@ -1,5 +1,15 @@
 # Introduction
 
+In some environments, you might have a number of phase 2 connections. One common issue is that one side does not remove old connections after re-keying.
+
+This check will count the number of phase 2 connections for a tuple of subnets.
+
+Basically, you get the same information by running:
+
+```
+ipsec statusall
+```
+
 # Examples
 
 ## Icinga2 config
