@@ -63,3 +63,6 @@ apply Service "IPSEC to Customer X - Phase 2 192.168.1.0/24 === 10.0.0.0/24" {
 }
 ```
 
+# References
+
+* https://github.com/oneoffdallas/pfsense-nagios-checks
