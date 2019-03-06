@@ -10,7 +10,26 @@ Basically, you get the same information by running:
 ipsec statusall
 ```
 
+The configuration for this check requires:
+
+* Copy the check script to the pfsense firewall, in /opt/icinga-plugins/custom/pfsense-nagios-checks/
+* Set up a monitoring user (icinga2) on the pfsense firewall
+* Create an ssh key on the icinga2 server for the nagios user
+* Install sudo on your firewall (System => Package Manager)
+* Configure sudo on your firewall so that the icinga2 user can execute commands without password (System => sudo)
+
 # Examples
+
+## Create an ssh key on the icinga2 server for the user "nagios"
+
+```
+sudo su -s /bin/bash - nagios
+
+mkdir .ssh
+ssh-keygen -t ed25519
+
+cat .ssh/id_ed25519.pub
+```
 
 ## Icinga2 config
 
@@ -44,9 +63,3 @@ apply Service "IPSEC to Customer X - Phase 2 192.168.1.0/24 === 10.0.0.0/24" {
 }
 ```
 
-You will also need to do the following:
-
-* Put the scripts on your pfsense firewall under /opt/icinga-plugins/custom/pfsense-nagios-checks/
-* Create an icinga2 user on your pfsense firewall
-* Install sudo on your firewall (System => Package Manager)
-* Configure sudo so that the icinga2 user can execute commands without password (System => sudo)
