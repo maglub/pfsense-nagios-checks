@@ -1,0 +1,89 @@
+#!/bin/sh
+#
+#======================================================
+#
+# References:
+# * https://github.com/oneoffdallas/pfsense-nagios-checks
+#======================================================
+
+#if [ "$1" = "-e" ] && [ ! -z "$2" ]; then
+
+exitstatus=2 #default
+
+endpoint=$2
+
+p2_source=$4
+p2_dest=$5
+
+regex="\b(25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\.(25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\.(25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\.(25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\b"
+
+#=======================================
+# Functions
+#=======================================
+getP1Connection(){
+  ipsec statusall | grep $endpoint | grep -E "^ *con" | head -1 | sed -e 's/ //g' -e 's/:.*//' -e 's/^ *//'
+}
+
+getP2Connections(){
+  local connection=$1
+  ipsec statusall | grep $connection | grep INSTALLED | sed -e 's/^.*{//' -e 's/}.*//'
+}
+
+getP2ConnectionsByEndpoints(){
+  local connection=$1
+  local p2_source=$2
+  local p2_dest=$3
+
+  #-- double space in the grep needed to filter away the Phase 1 connection
+  ipsec statusall | grep "${connection}" | grep "  ${p2_source}|/0 === ${p2_dest}|/0" | sed -e 's/.*{//' -e 's/}.*//'
+# | perl -pe 's/\n/ /'
+}
+
+showP2Connection(){
+  #--- this function will print all info about one phase 2 connection
+  local connection=$1
+  local p2connection=$2
+
+  echo
+  ipsec statusall | grep "${connection}{$p2connection}" | sed -e 's/^ *//'
+}
+
+#==========================================
+# MAIN
+#==========================================
+
+connection=$(getP1Connection)
+
+phase2Connections=$(getP2ConnectionsByEndpoints $connection $p2_source $p2_dest)
+numP2Connections=$(getP2ConnectionsByEndpoints  $connection $p2_source $p2_dest | wc -l | sed -e 's/^ *//')
+
+case $numP2Connections in
+  0)
+    check_result_string=CRIT
+    check_exit_code=2
+    ;;
+  1)
+    check_result_string=OK
+    check_exit_code=0
+    ;;
+  *)
+    check_result_string=WARN
+    check_exit_code=1
+    ;;
+esac
+
+cat<<EOT
+$check_result_string - IPSEC Phase 2 for $p2_source === $p2_dest - $numP2Connections
+
+Stats:
+===========================================
+       connection : $connection
+phase2 connections: $( echo $phase2Connections | perl -pe 's/\n/ /')
+EOT
+for n in $phase2Connections
+do
+  showP2Connection $connection $n
+done
+
+exit $check_exit_code
+
