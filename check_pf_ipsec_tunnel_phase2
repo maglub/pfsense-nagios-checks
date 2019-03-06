@@ -6,21 +6,13 @@
 # * https://github.com/oneoffdallas/pfsense-nagios-checks
 #======================================================
 
-#if [ "$1" = "-e" ] && [ ! -z "$2" ]; then
-
-exitstatus=2 #default
-
-endpoint=$2
-
-p2_source=$4
-p2_dest=$5
-
-regex="\b(25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\.(25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\.(25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\.(25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\b"
+this_script=$(basename $0)
 
 #=======================================
 # Functions
 #=======================================
 getP1Connection(){
+  local endpoint=$1 
   ipsec statusall | grep $endpoint | grep -E "^ *con" | head -1 | sed -e 's/ //g' -e 's/:.*//' -e 's/^ *//'
 }
 
@@ -48,11 +40,70 @@ showP2Connection(){
   ipsec statusall | grep "${connection}{$p2connection}" | sed -e 's/^ *//'
 }
 
+usage(){
+  cat<<EOT
+
+  script: $this_script
+
+Usage:
+
+  $this_script --endpoint ENDPOINT --p2-source IP/MASK --p2-dest IP/MASK [ --display-name ALTERNATIVE ]
+
+EOT
+}
+#===========================================
+# SETUP
+#===========================================
+
+while [ -n "$1" ]
+do
+  case $1 in
+    --endpoint|-e)
+      endpoint=$2
+      shift; shift
+      ;;
+    --p2-source)
+      p2_source=$2
+      shift; shift
+      ;;
+    --display-name)
+      displayName=$2
+      shift; shift
+      ;;
+    --p2-dest)
+      p2_dest=$2
+      shift; shift
+      ;;
+    *)
+      echo "ERROR! Unknown option: $1"
+      usage
+      exit 1
+  esac
+done  
+
+[ -z "$displayName" ] && displayName=$endpoint
+[ -z "$endpoint" ] && { usage ; exit 1 ; }
+[ -z "$p2_source" ] && { usage ; exit 1 ; }
+[ -z "$p2_dest" ] && { usage ; exit 1 ; }
+
+regex="\b(25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\.(25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\.(25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\.(25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\b"
+
+
+if [ -n "$debug" ]
+then
+  echo "options"
+  while [ -n "$1" ]
+  do
+    echo $1
+    shift
+  done
+fi
+
 #==========================================
 # MAIN
 #==========================================
 
-connection=$(getP1Connection)
+connection=$(getP1Connection $endpoint)
 
 phase2Connections=$(getP2ConnectionsByEndpoints $connection $p2_source $p2_dest)
 numP2Connections=$(getP2ConnectionsByEndpoints  $connection $p2_source $p2_dest | wc -l | sed -e 's/^ *//')
@@ -73,12 +124,12 @@ case $numP2Connections in
 esac
 
 cat<<EOT
-$check_result_string - IPSEC Phase 2 for $p2_source === $p2_dest - $numP2Connections
+$check_result_string - IPSEC Phase 2 for $p2_source === $p2_dest - Connections: $numP2Connections
 
 Stats:
 ===========================================
-       connection : $connection
-phase2 connections: $( echo $phase2Connections | perl -pe 's/\n/ /')
+connection :                      $displayName
+phase2 connections:               $( echo $phase2Connections | perl -pe 's/\n/ /')
 EOT
 for n in $phase2Connections
 do
@@ -86,4 +137,3 @@ do
 done
 
 exit $check_exit_code
-
